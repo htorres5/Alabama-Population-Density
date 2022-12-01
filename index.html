@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<style>
+
+div.label {	
+    position: absolute;			
+    text-align: left;			
+    display: inline-block;					
+    height: 27px;					
+    padding: 5px;				
+    font: 12px sans-serif;	
+    fill: white;
+    background: grey;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;
+}
+    
+button {
+    display: inline-block;
+    margin: auto;
+}
+
+svg {
+    display: block;
+    margin: auto;
+}
+
+</style>
+<button>Change Color</button>
+<h1 style = "color:black; font: bold 24px sans-serif; text-align: center"><bold>Alabama Population Density, 2022</bold></h1>
+<svg width="960" height="700"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://d3js.org/topojson.v2.min.js"></script>
+<script>
+
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height")
+
+var projection = d3.geoTransverseMercator()
+    .rotate([85 + 50 / 60, -30 - 30 / 60])
+    .translate([width/2, height - 100])
+    .scale([6000]);
+    
+
+var path = d3.geoPath().projection(projection);
+
+var defaultColor = true;
+
+var color = d3.scaleThreshold()
+    .domain([1, 10, 20, 30, 40, 50, 100, 400])
+    .range(d3.schemeOrRd[9]);
+
+var color2 = d3.scaleThreshold()
+    .domain([1, 10, 20, 30, 40, 50, 100, 400])
+    .range(d3.schemeBlues[9]);
+
+function changeColor() {
+    if (defaultColor) {
+        g.selectAll("rect")
+          .data(color2.range().map(function(d) {
+              d = color2.invertExtent(d);
+              if (d[0] == null) d[0] = x.domain()[0];
+              if (d[1] == null) d[1] = x.domain()[1];
+              return d;
+            }))
+           .attr("fill", function(d) { return color2(d[0]); });
+        svg.selectAll("path")
+           .style("fill", function(d) {
+            //Get data value
+            var value = d.properties.value;
+            console.log(value)
+            if (value) {
+                //If value exists…
+                return color2(value);
+            } else {
+                //If value is undefined…
+                return "#ccc";
+            }
+        })
+        defaultColor = false;
+    } else {
+        g.selectAll("rect")
+          .data(color.range().map(function(d) {
+              d = color.invertExtent(d);
+              if (d[0] == null) d[0] = x.domain()[0];
+              if (d[1] == null) d[1] = x.domain()[1];
+              return d;
+            }))
+           .attr("fill", function(d) { return color(d[0]); });
+        svg.selectAll("path")
+           .style("fill", function(d) {
+            //Get data value
+            var value = d.properties.value;
+            console.log(value)
+            if (value) {
+                //If value exists…
+                return color(value);
+            } else {
+                //If value is undefined…
+                return "#ccc";
+            }
+        })
+        defaultColor = true;
+    }
+
+}
+    
+var x = d3.scaleSqrt()
+    .domain([0, 450])
+    .rangeRound([100, 450]);
+
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(0,40)");
+
+var tooltip = d3.select("body").append("div")
+    .attr("class", "label")
+    .style("opacity", 0);
+
+g.selectAll("rect")
+  .data(color.range().map(function(d) {
+      d = color.invertExtent(d);
+      if (d[0] == null) d[0] = x.domain()[0];
+      if (d[1] == null) d[1] = x.domain()[1];
+      return d;
+    }))
+  .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return x(d[0]); })
+    .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+    .attr("fill", function(d) { return color(d[0]); });
+
+g.append("text")
+    .attr("class", "caption")
+    .attr("x", x.range()[0])
+    .attr("y", -6)
+    .attr("fill", "#000")
+    .attr("text-anchor", "start")
+    .attr("font-weight", "bold")
+    .text("Population per square mile");
+
+g.call(d3.axisBottom(x)
+    .tickSize(13)
+    .tickValues(color.domain()))
+  .select(".domain")
+    .remove();
+
+d3.select("button")
+    .on("click", changeColor);
+
+//Load in agriculture data
+d3.csv("data.csv", function(data) {
+    //Set input domain for color scale
+
+    //Load in GeoJSON data
+    d3.json("topo.json", function(json) {
+        console.log(json)
+        //Merge the ag. data and GeoJSON
+        //Loop through once for each ag. data value
+        var tracts = topojson.feature(json, json.objects.cb_2015_alabama_county_20m)
+        console.log(tracts.features)
+        console.log(tracts.features.length)
+        for (var i = 0; i < data.length; i++) {
+            console.log("hi")
+            //Grab state name
+            var dataState = data[i].county;
+            console.log(dataState)
+            //Grab data value, and convert from string to float
+            var dataValue = parseFloat(data[i].density);
+            
+            //Find the corresponding state inside the GeoJSON
+            for (var j = 0; j < tracts.features.length; j++) {
+                
+                var jsonState = tracts.features[j].properties.NAME;
+                console.log(jsonState)
+                if (dataState == jsonState) {
+                    console.log("SAME")
+                    //Copy the data value into the JSON
+                    tracts.features[j].properties.value = dataValue;
+
+                    //Stop looking through the JSON
+                    break;
+
+                }
+            }		
+        }
+
+        //Bind data and create one path per GeoJSON feature
+        svg.append("g")
+           .selectAll("path")
+           .data(tracts.features)
+           .enter()
+           .append("path")
+           .attr("d", path)
+           .style("fill", function(d) {
+                //Get data value
+                var value = d.properties.value;
+                console.log(value)
+                if (value) {
+                    //If value exists…
+                    console.log(color(value))
+                    return color(value);
+                } else {
+                    //If value is undefined…
+                    return "#ccc";
+                }
+            })
+            .on("mouseover", function(d) {		
+                tooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                tooltip.html(`<b>Name: ${d.properties.NAME}<br>Density: ${d.properties.value}</b>`)
+                })
+               .on("mousemove", function(d) {
+               tooltip
+                   .style("left", event.offsetX + "px")
+                   .style("top", event.offsetY + 40 + "px")
+           })
+           .on("mouseout", function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0)
+        });
+    });
+
+});
+
+</script>
+<div style = "color:black; font: bold 16px sans-serif ; text-align: center">
+Hector Torres<br>
+Instructor: Suresh Lodha<br>
+CMPS 163: Data programming for Visualization<br>
+Fall 2022<br>
+</div>
