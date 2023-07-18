@@ -1,5 +1,5 @@
 # ALABAMA POPULATION DENSITY 2022
-WHERE DO THE MOST PEOPLE LIVE IN THE WONDERFUL SWEET HOME ALABAMA? WELL LOOK NO FURTHER!
+Where do most people live in sweet home Alabama? Well look no further!
 
 Files:
    - index.html
